@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f4dfc7">
-<title>季宴今天不營業｜V0.5</title>
+<title>季宴今天不營業｜V0.6</title>
 <style>
 :root{--ink:#493d40;--muted:#826f72;--paper:#fff8ed;--peach:#ffd9cb;--rose:#bc7585;--line:#d5b9a3}
 *{box-sizing:border-box}
@@ -20,7 +20,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
 <body>
 <main class="app">
   <div class="top">
-    <div class="eyebrow">PIXEL FRIENDS · V0.5</div>
+    <div class="eyebrow">PIXEL FRIENDS · V0.6</div>
     <div class="headline"><h1>季宴今天不營業 ☕</h1><button class="smallbtn" id="settings">⚙ 設定連結</button></div>
     <div class="barline"><span>♥ 好感度</span><span id="score">0 / 10</span></div>
     <div class="bar"><div id="fill" class="fill"></div></div>
@@ -34,7 +34,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
     <div class="line" id="line">「嗯……？今天沒有上班喔。既然來了，要不要坐一下？」</div>
     <div class="actions" id="actions"><button class="action" id="next">開始逛逛 →</button></div>
   </div>
-  <div class="notice">V0.5 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
+  <div class="notice">V0.6 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
 </main>
 <div class="modalbg" id="modal"><div class="modal"><h2>🔗 設定外部角色檔案</h2><p>貼上角色檔案網址後，通關按鈕就能打開該連結。網址只存在本次開啟期間。若要正式發布，請把網址寫進程式的 <code>FILE_URL</code>。</p><input id="url" type="url" placeholder="https://example.com/你的角色檔案" aria-label="外部角色檔案網址"><div class="actions"><button class="smallbtn" id="cancel">取消</button><button class="action" id="save">套用網址</button></div></div></div>
 <script>
@@ -54,7 +54,7 @@ let score=0, completed=new Set(), mode='intro', dialogue=[], idx=0, ending=false
 let pos={x:156,y:245}, currentFacing='down', expression='normal';
 const spriteFiles={
   front_idle:'assets/front_idle.png', back_idle:'assets/back_idle.png', left_idle:'assets/left_idle.png', right_idle:'assets/right_idle.png',
-  happy:'assets/happy.png', shy:'assets/shy.png',
+  happy:'assets/happy.png', shy:'assets/shy.png', blink:'assets/blink.png',
   down1:'assets/down1.png', down2:'assets/down2.png', down3:'assets/down3.png',
   left1:'assets/left1.png', left2:'assets/left2.png', left3:'assets/left3.png',
   right1:'assets/right1.png', right2:'assets/right2.png', right3:'assets/right3.png',
@@ -81,14 +81,14 @@ function drawRoom(){
   for(const o of rooms){ if(o.id==='jiyan') continue; if(!completed.has(o.id)){ rect(o.x+o.w-10,o.y+4,7,7,'#fff4cb'); rect(o.x+o.w-8,o.y+2,3,11,'#fff4cb'); } }
 }
 function getSpriteKey(){
-  // Use one consistent silhouette for every walking frame. The generated
-  // walking sheet had extra overlapping figures and uneven bounding boxes.
-  if(expression==='happy') return 'happy';
-  if(expression==='shy') return 'shy';
-  if(currentFacing==='up') return 'back_idle';
-  if(currentFacing==='left') return 'left_idle';
-  if(currentFacing==='right') return 'right_idle';
-  return 'front_idle';
+  if(mode==='moving'){
+    const n=Math.floor(performance.now()/145)%3+1;
+    return currentFacing+n;
+  }
+  if(currentFacing==='down' && expression==='happy')return 'happy';
+  if(currentFacing==='down' && expression==='shy')return 'shy';
+  if(currentFacing==='down' && Math.floor(performance.now()/2600)%5===4)return 'blink';
+  return {down:'front_idle',up:'back_idle',left:'left_idle',right:'right_idle'}[currentFacing]||'front_idle';
 }
 function drawFallbackSprite(){
   const px=Math.round(pos.x-24), py=Math.round(pos.y-48);
@@ -99,12 +99,10 @@ function drawFallbackSprite(){
 }
 function drawSprite(){
   const key=getSpriteKey(), img=sprites[key];
-  const walking=mode==='moving';
-  // Subtle whole-body steps instead of switching to malformed generated frames.
-  const bounce=walking ? Math.round(Math.abs(Math.sin(performance.now()/110))*2) : 0;
-  const drawX=Math.round(pos.x-32), drawY=Math.round(pos.y-64-bounce);
+  // Every sprite is an exact 48×48 frame with the same foot baseline.
+  const drawX=Math.round(pos.x-32), drawY=Math.round(pos.y-64);
   ctx.fillStyle='rgba(110,78,74,0.28)';
-  ctx.beginPath(); ctx.ellipse(pos.x, pos.y-3, 15, 5, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(pos.x,pos.y-3,14,4,0,0,Math.PI*2); ctx.fill();
   if(img && img.complete && img.naturalWidth){ctx.drawImage(img,drawX,drawY,64,64)}
   else drawFallbackSprite();
   if(active && mode!=='moving'){
