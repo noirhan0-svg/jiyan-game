@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f4dfc7">
-<title>季宴今天不營業｜V0.6</title>
+<title>季宴今天不營業｜V0.7</title>
 <style>
 :root{--ink:#493d40;--muted:#826f72;--paper:#fff8ed;--peach:#ffd9cb;--rose:#bc7585;--line:#d5b9a3}
 *{box-sizing:border-box}
@@ -20,7 +20,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
 <body>
 <main class="app">
   <div class="top">
-    <div class="eyebrow">PIXEL FRIENDS · V0.6</div>
+    <div class="eyebrow">PIXEL FRIENDS · V0.7</div>
     <div class="headline"><h1>季宴今天不營業 ☕</h1><button class="smallbtn" id="settings">⚙ 設定連結</button></div>
     <div class="barline"><span>♥ 好感度</span><span id="score">0 / 10</span></div>
     <div class="bar"><div id="fill" class="fill"></div></div>
@@ -34,7 +34,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
     <div class="line" id="line">「嗯……？今天沒有上班喔。既然來了，要不要坐一下？」</div>
     <div class="actions" id="actions"><button class="action" id="next">開始逛逛 →</button></div>
   </div>
-  <div class="notice">V0.6 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
+  <div class="notice">V0.7 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
 </main>
 <div class="modalbg" id="modal"><div class="modal"><h2>🔗 設定外部角色檔案</h2><p>貼上角色檔案網址後，通關按鈕就能打開該連結。網址只存在本次開啟期間。若要正式發布，請把網址寫進程式的 <code>FILE_URL</code>。</p><input id="url" type="url" placeholder="https://example.com/你的角色檔案" aria-label="外部角色檔案網址"><div class="actions"><button class="smallbtn" id="cancel">取消</button><button class="action" id="save">套用網址</button></div></div></div>
 <script>
@@ -62,7 +62,7 @@ const spriteFiles={
 };
 const sprites={};
 for(const [k,src] of Object.entries(spriteFiles)){
-  const img=new Image(); img.src=src; sprites[k]=img;
+  const img=new Image(); img.src=src+'?v=07'; sprites[k]=img;
 }
 function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
 function text(s,x,y,color='#634f4a',size=9){ctx.fillStyle=color;ctx.font=`bold ${size}px monospace`;ctx.fillText(s,x,y)}
@@ -99,7 +99,7 @@ function drawFallbackSprite(){
 }
 function drawSprite(){
   const key=getSpriteKey(), img=sprites[key];
-  // Every sprite is an exact 48×48 frame with the same foot baseline.
+  // Every sprite is a 64×64 transparent frame with a shared foot baseline.
   const drawX=Math.round(pos.x-32), drawY=Math.round(pos.y-64);
   ctx.fillStyle='rgba(110,78,74,0.28)';
   ctx.beginPath(); ctx.ellipse(pos.x,pos.y-3,14,4,0,0,Math.PI*2); ctx.fill();
