@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f4dfc7">
-<title>季宴今天不營業｜V0.4</title>
+<title>季宴今天不營業｜V0.5</title>
 <style>
 :root{--ink:#493d40;--muted:#826f72;--paper:#fff8ed;--peach:#ffd9cb;--rose:#bc7585;--line:#d5b9a3}
 *{box-sizing:border-box}
@@ -20,7 +20,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
 <body>
 <main class="app">
   <div class="top">
-    <div class="eyebrow">PIXEL FRIENDS · V0.4</div>
+    <div class="eyebrow">PIXEL FRIENDS · V0.5</div>
     <div class="headline"><h1>季宴今天不營業 ☕</h1><button class="smallbtn" id="settings">⚙ 設定連結</button></div>
     <div class="barline"><span>♥ 好感度</span><span id="score">0 / 10</span></div>
     <div class="bar"><div id="fill" class="fill"></div></div>
@@ -34,7 +34,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
     <div class="line" id="line">「嗯……？今天沒有上班喔。既然來了，要不要坐一下？」</div>
     <div class="actions" id="actions"><button class="action" id="next">開始逛逛 →</button></div>
   </div>
-  <div class="notice">V0.4 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
+  <div class="notice">V0.5 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
 </main>
 <div class="modalbg" id="modal"><div class="modal"><h2>🔗 設定外部角色檔案</h2><p>貼上角色檔案網址後，通關按鈕就能打開該連結。網址只存在本次開啟期間。若要正式發布，請把網址寫進程式的 <code>FILE_URL</code>。</p><input id="url" type="url" placeholder="https://example.com/你的角色檔案" aria-label="外部角色檔案網址"><div class="actions"><button class="smallbtn" id="cancel">取消</button><button class="action" id="save">套用網址</button></div></div></div>
 <script>
@@ -44,10 +44,10 @@ let externalUrl=FILE_URL;
 const $=id=>document.getElementById(id), canvas=$('world'), ctx=canvas.getContext('2d');
 ctx.imageSmoothingEnabled=false;
 const rooms=[
- {id:'books',name:'書架',x:20,y:37,w:74,h:92,tx:81,ty:153,points:2},
- {id:'sofa',name:'沙發',x:109,y:77,w:109,h:61,tx:164,ty:164,points:2},
- {id:'silver',name:'銀飾盒',x:246,y:61,w:59,h:75,tx:254,ty:155,points:2},
- {id:'fridge',name:'冰箱',x:247,y:193,w:59,h:84,tx:225,ty:271,points:1},
+ {id:'books',name:'書架',x:20,y:37,w:74,h:92,tx:97,ty:161,points:2},
+ {id:'sofa',name:'沙發',x:109,y:77,w:109,h:61,tx:164,ty:179,points:2},
+ {id:'silver',name:'銀飾盒',x:246,y:61,w:59,h:75,tx:230,ty:169,points:2},
+ {id:'fridge',name:'冰箱',x:247,y:193,w:59,h:84,tx:215,ty:292,points:1},
  {id:'jiyan',name:'季宴',x:112,y:181,w:98,h:123,tx:162,ty:233,points:3}
 ];
 let score=0, completed=new Set(), mode='intro', dialogue=[], idx=0, ending=false, active=null, moving=null;
@@ -81,13 +81,14 @@ function drawRoom(){
   for(const o of rooms){ if(o.id==='jiyan') continue; if(!completed.has(o.id)){ rect(o.x+o.w-10,o.y+4,7,7,'#fff4cb'); rect(o.x+o.w-8,o.y+2,3,11,'#fff4cb'); } }
 }
 function getSpriteKey(){
-  if(mode==='moving'){
-    const n=(Math.floor(performance.now()/180)%3)+1;
-    return {down:`down${n}`,up:`up${n}`,left:`left${n}`,right:`right${n}`}[currentFacing];
-  }
+  // Use one consistent silhouette for every walking frame. The generated
+  // walking sheet had extra overlapping figures and uneven bounding boxes.
   if(expression==='happy') return 'happy';
   if(expression==='shy') return 'shy';
-  return {down:'front_idle',up:'back_idle',left:'left_idle',right:'right_idle'}[currentFacing]||'front_idle';
+  if(currentFacing==='up') return 'back_idle';
+  if(currentFacing==='left') return 'left_idle';
+  if(currentFacing==='right') return 'right_idle';
+  return 'front_idle';
 }
 function drawFallbackSprite(){
   const px=Math.round(pos.x-24), py=Math.round(pos.y-48);
@@ -97,15 +98,17 @@ function drawFallbackSprite(){
   rect(px+8,py+10,32,20,'#e3bd77'); rect(px+9,py+19,31,12,'#f4ceb0'); rect(px+17,py+19,5,5,'#a67b40'); rect(px+28,py+19,5,5,'#a67b40');
 }
 function drawSprite(){
-  const key=getSpriteKey();
-  const img=sprites[key];
-  const drawX=Math.round(pos.x-32), drawY=Math.round(pos.y-74);
+  const key=getSpriteKey(), img=sprites[key];
+  const walking=mode==='moving';
+  // Subtle whole-body steps instead of switching to malformed generated frames.
+  const bounce=walking ? Math.round(Math.abs(Math.sin(performance.now()/110))*2) : 0;
+  const drawX=Math.round(pos.x-32), drawY=Math.round(pos.y-64-bounce);
   ctx.fillStyle='rgba(110,78,74,0.28)';
   ctx.beginPath(); ctx.ellipse(pos.x, pos.y-3, 15, 5, 0, 0, Math.PI*2); ctx.fill();
-  if(img && img.complete && img.naturalWidth){ ctx.drawImage(img, drawX, drawY, 64, 64); }
-  else { drawFallbackSprite(); }
+  if(img && img.complete && img.naturalWidth){ctx.drawImage(img,drawX,drawY,64,64)}
+  else drawFallbackSprite();
   if(active && mode!=='moving'){
-    const symbol = expression==='angry' ? '!' : expression==='shy' ? '♥' : '♪';
+    const symbol=expression==='angry'?'!':expression==='shy'?'♥':'♪';
     text(symbol,pos.x+16,pos.y-48,'#a86678',16);
   }
 }
