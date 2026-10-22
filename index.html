@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f4dfc7">
-<title>季宴今天不營業｜V0.7</title>
+<title>季宴今天不營業｜V0.8</title>
 <style>
 :root{--ink:#493d40;--muted:#826f72;--paper:#fff8ed;--peach:#ffd9cb;--rose:#bc7585;--line:#d5b9a3}
 *{box-sizing:border-box}
@@ -20,7 +20,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
 <body>
 <main class="app">
   <div class="top">
-    <div class="eyebrow">PIXEL FRIENDS · V0.7</div>
+    <div class="eyebrow">PIXEL FRIENDS · V0.8</div>
     <div class="headline"><h1>季宴今天不營業 ☕</h1><button class="smallbtn" id="settings">⚙ 設定連結</button></div>
     <div class="barline"><span>♥ 好感度</span><span id="score">0 / 10</span></div>
     <div class="bar"><div id="fill" class="fill"></div></div>
@@ -34,7 +34,7 @@ button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}
     <div class="line" id="line">「嗯……？今天沒有上班喔。既然來了，要不要坐一下？」</div>
     <div class="actions" id="actions"><button class="action" id="next">開始逛逛 →</button></div>
   </div>
-  <div class="notice">V0.7 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
+  <div class="notice">V0.8 已整合像素季宴角色 · 首次完成互動才增加好感度 · 無需存檔。</div>
 </main>
 <div class="modalbg" id="modal"><div class="modal"><h2>🔗 設定外部角色檔案</h2><p>貼上角色檔案網址後，通關按鈕就能打開該連結。網址只存在本次開啟期間。若要正式發布，請把網址寫進程式的 <code>FILE_URL</code>。</p><input id="url" type="url" placeholder="https://example.com/你的角色檔案" aria-label="外部角色檔案網址"><div class="actions"><button class="smallbtn" id="cancel">取消</button><button class="action" id="save">套用網址</button></div></div></div>
 <script>
@@ -52,9 +52,12 @@ const rooms=[
 ];
 let score=0, completed=new Set(), mode='intro', dialogue=[], idx=0, ending=false, active=null, moving=null;
 let pos={x:156,y:245}, currentFacing='down', expression='normal';
+let pose='idle', prop='none', emote='', emoteUntil=0;
 const spriteFiles={
   front_idle:'assets/front_idle.png', back_idle:'assets/back_idle.png', left_idle:'assets/left_idle.png', right_idle:'assets/right_idle.png',
   happy:'assets/happy.png', shy:'assets/shy.png', blink:'assets/blink.png',
+  hold_book:'assets/hold_book.png', read_book:'assets/read_book.png', surprised:'assets/surprised.png',
+  disgust:'assets/disgust.png', hold_pepper:'assets/hold_pepper.png', thinking:'assets/thinking.png',
   down1:'assets/down1.png', down2:'assets/down2.png', down3:'assets/down3.png',
   left1:'assets/left1.png', left2:'assets/left2.png', left3:'assets/left3.png',
   right1:'assets/right1.png', right2:'assets/right2.png', right3:'assets/right3.png',
@@ -62,7 +65,7 @@ const spriteFiles={
 };
 const sprites={};
 for(const [k,src] of Object.entries(spriteFiles)){
-  const img=new Image(); img.src=src+'?v=07'; sprites[k]=img;
+  const img=new Image(); img.src=src+'?v=08'; sprites[k]=img;
 }
 function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
 function text(s,x,y,color='#634f4a',size=9){ctx.fillStyle=color;ctx.font=`bold ${size}px monospace`;ctx.fillText(s,x,y)}
@@ -81,14 +84,38 @@ function drawRoom(){
   for(const o of rooms){ if(o.id==='jiyan') continue; if(!completed.has(o.id)){ rect(o.x+o.w-10,o.y+4,7,7,'#fff4cb'); rect(o.x+o.w-8,o.y+2,3,11,'#fff4cb'); } }
 }
 function getSpriteKey(){
-  if(mode==='moving'){
-    const n=Math.floor(performance.now()/145)%3+1;
-    return currentFacing+n;
-  }
-  if(currentFacing==='down' && expression==='happy')return 'happy';
-  if(currentFacing==='down' && expression==='shy')return 'shy';
+  if(mode==='moving') return currentFacing+(Math.floor(performance.now()/145)%3+1);
+  if(pose!=='idle' && sprites[pose]?.complete && sprites[pose].naturalWidth) return pose;
+  if(currentFacing==='down' && ['happy','shy'].includes(expression)) return expression;
   if(currentFacing==='down' && Math.floor(performance.now()/2600)%5===4)return 'blink';
   return {down:'front_idle',up:'back_idle',left:'left_idle',right:'right_idle'}[currentFacing]||'front_idle';
+}
+function setAct(a={}){
+  pose=a.pose||'idle'; expression=a.expr||'normal';
+  currentFacing=a.face||'down'; prop=a.prop||'none';
+  emote=a.emote||''; emoteUntil=a.emote?performance.now()+2200:0;
+}
+function drawProp(){
+  if(!prop || prop==='none')return;
+  const x=Math.round(pos.x), y=Math.round(pos.y);
+  ctx.save();
+  if(prop==='book'){
+    ctx.fillStyle='#65463b';ctx.fillRect(x-13,y-27,26,16);
+    ctx.fillStyle='#e7c6a1';ctx.fillRect(x-11,y-25,10,12);ctx.fillRect(x+1,y-25,10,12);
+    ctx.fillStyle='#a77e62';ctx.fillRect(x,y-25,1,12);
+  } else if(prop==='pepper'){
+    ctx.fillStyle='#477d4b';ctx.fillRect(x+13,y-29,13,12);
+    ctx.fillStyle='#83a65c';ctx.fillRect(x+15,y-27,9,10);
+    ctx.fillStyle='#396744';ctx.fillRect(x+19,y-32,3,5);
+  }
+  ctx.restore();
+}
+function drawEmote(){
+  if(!emote || performance.now()>emoteUntil)return;
+  const x=Math.round(pos.x+18),y=Math.round(pos.y-60);
+  ctx.fillStyle='#fff4d4';ctx.fillRect(x-8,y-15,24,24);
+  ctx.strokeStyle='#8d6470';ctx.lineWidth=2;ctx.strokeRect(x-8,y-15,24,24);
+  text(emote,x,y+3,'#a05261',19);
 }
 function drawFallbackSprite(){
   const px=Math.round(pos.x-24), py=Math.round(pos.y-48);
@@ -99,12 +126,14 @@ function drawFallbackSprite(){
 }
 function drawSprite(){
   const key=getSpriteKey(), img=sprites[key];
-  // Every sprite is a 64×64 transparent frame with a shared foot baseline.
+  // Every sprite is an exact 64×64 frame with the same foot baseline.
   const drawX=Math.round(pos.x-32), drawY=Math.round(pos.y-64);
   ctx.fillStyle='rgba(110,78,74,0.28)';
   ctx.beginPath(); ctx.ellipse(pos.x,pos.y-3,14,4,0,0,Math.PI*2); ctx.fill();
   if(img && img.complete && img.naturalWidth){ctx.drawImage(img,drawX,drawY,64,64)}
   else drawFallbackSprite();
+  if(pose==='idle' || !sprites[pose]?.naturalWidth)drawProp();
+  drawEmote();
   if(active && mode!=='moving'){
     const symbol=expression==='angry'?'!':expression==='shy'?'♥':'♪';
     text(symbol,pos.x+16,pos.y-48,'#a86678',16);
@@ -122,35 +151,91 @@ function render(){
   requestAnimationFrame(render);
 }
 function dialogueUI(speaker,line,buttons){ $('speaker').textContent=speaker; $('line').textContent=line; $('actions').replaceChildren(); for(const b of buttons){ const el=document.createElement('button'); el.className=b.choice?'choice':'action'; el.textContent=b.text; el.onclick=b.fn; $('actions').appendChild(el); } }
-function say(lines,onEnd){ dialogue=lines; idx=0; mode='dialog'; const next=()=>{ if(idx>=dialogue.length){ mode='idle'; expression='normal'; active=null; if(onEnd) onEnd(); else setIdle(); return; } const item=dialogue[idx++]; if(typeof item==='string'){ dialogueUI('季宴', item, [{text: idx<dialogue.length?'繼續 ▸':'完成 ✓', fn: next}]); }
-  else { dialogueUI('季宴', item.prompt, item.options.map(o=>({text:o.label, choice:true, fn:()=>{ expression=o.expr||'shy'; say(o.lines, ()=>{ mode='idle'; if(onEnd) onEnd(); else setIdle(); }); }}))); } }; next(); }
+function say(lines,onEnd){
+  dialogue=lines;idx=0;mode='dialog';
+  const next=()=>{
+    if(idx>=dialogue.length){mode='idle';setAct();active=null;if(onEnd)onEnd();else setIdle();return;}
+    const item=dialogue[idx++];
+    if(typeof item==='string'){
+      setAct({face:'down'});
+      dialogueUI('季宴',item,[{text:idx<dialogue.length?'繼續 ▸':'完成 ✓',fn:next}]);
+    }else if(item.prompt){
+      setAct(item);
+      dialogueUI('季宴',item.prompt,item.options.map(o=>({text:o.label,choice:true,fn:()=>{
+        say(o.lines.map((line,i)=>typeof line==='string'?{line,expr:i===0?(o.expr||'shy'):'happy'}:line),
+          ()=>{mode='idle';if(onEnd)onEnd();else setIdle();});
+      }})));
+    }else{
+      setAct(item);
+      dialogueUI('季宴',item.line,[{text:idx<dialogue.length?'繼續 ▸':'完成 ✓',fn:next}]);
+    }
+  };next();
+}
+function updateFacing(toX,toY){const dx=toX-pos.x,dy=toY-pos.y;if(Math.abs(dx)>Math.abs(dy))currentFacing=dx<0?'left':'right';else currentFacing=dy<0?'up':'down';}
+function scene(id){
+  if(mode!=='idle'||ending)return;
+  const o=rooms.find(a=>a.id===id);
+  if(id==='jiyan'&&['books','sofa','silver','fridge'].some(x=>!completed.has(x))){
+    active='jiyan';say([{line:'「嘿，先隨便看看吧。」',expr:'happy'},
+      {line:'「家裡沒什麼特別的東西就是了。」',expr:'shy'}]);return;
+  }
+  if(id!=='jiyan'&&completed.has(id)){
+    active=id;say([{line:'「這個剛剛不是看過了嗎？呵呵，還想再看一次呀？」',expr:'happy'}]);return;
+  }
+  mode='moving';active=id;setAct({face:currentFacing});updateFacing(o.tx,o.ty);
+  $('hint').textContent='🐾 季宴正在走過去……';dialogueUI('季宴','「等我一下喔。」',[]);
+  const done=()=>{
+    $('hint').textContent='👆 點家具探索，觸發季宴的小故事';
+    const reward=()=>{if(!completed.has(id)){completed.add(id);score+=o.points;updateScore();}
+      if(score>=10)finale();else setIdle();};
+    const lines={
+      books:[
+        {line:'「你也喜歡看小說？」',face:'down',expr:'happy',pose:'hold_book',prop:'book'},
+        {line:'「這一整套，我可是一本一本慢慢收齊的。」',face:'down',expr:'happy',pose:'read_book',prop:'book'},
+        {line:'「要借你也可以，不過記得還我喔。」',face:'down',expr:'shy',pose:'hold_book',prop:'book'}
+      ],
+      sofa:[
+        {line:'「呼……果然還是家裡舒服。」',face:'down',expr:'happy'},
+        {line:'「平常工作完，最喜歡像這樣窩著。」',face:'down',expr:'shy'},
+        {line:'「……你要不要也坐一下？」',face:'down',expr:'happy',emote:'♥'}
+      ],
+      silver:[
+        {line:'「這些都是我慢慢收集的。」',face:'down',expr:'happy'},
+        {line:'「有些其實也沒多貴，就是覺得很漂亮。」',face:'down',expr:'shy'},
+        {line:'「你喜歡哪一個？」',face:'down',expr:'happy',emote:'♪'}
+      ],
+      fridge:[
+        {line:'「要吃點什麼嗎？我看看……」',face:'down',expr:'happy'},
+        {line:'「……等一下。」',face:'down',pose:'thinking',emote:'？'},
+        {line:'「青椒？！這個東西為什麼會出現在我家？！」',face:'down',pose:'surprised',prop:'pepper',emote:'！'},
+        {line:'「……誰把它放進來的。」',face:'down',pose:'disgust',prop:'pepper',emote:'！'}
+      ],
+      jiyan:[
+        {line:'「說起來……今天你來找我，是有什麼事情嗎？」',expr:'shy'},
+        {prompt:'「嗯？怎麼不說話？」',expr:'happy',options:[
+          {label:'「沒有，只是來看看你。」',expr:'shy',lines:['「……只是來看我？」','「這樣啊。呵呵，有點不習慣呢。」']},
+          {label:'「想跟你一起待一會兒。」',expr:'shy',lines:['「跟我一起？」','「今天的客人還真奇怪。」「……不過，我也不討厭。」']}
+        ]}
+      ]
+    }[id];
+    say(lines,reward);
+  };
+  moving={start:performance.now(),fromX:pos.x,fromY:pos.y,toX:o.tx,toY:o.ty,done};
+}
 function setIdle(){ if(ending) return; const remain=['books','sofa','silver','fridge'].filter(id=>!completed.has(id)); if(remain.length){ dialogueUI('提示', `還有 ${remain.length} 個物品可以探索。點擊畫面中的家具吧！`, []); } else { dialogueUI('提示','似乎還可以找季宴聊聊天……點點他吧。',[]);} }
 function updateScore(){ score=Math.min(10,score); $('score').textContent=score+' / 10'; $('fill').style.width=(score*10)+'%'; }
-function updateFacing(toX,toY){ const dx=toX-pos.x, dy=toY-pos.y; if(Math.abs(dx)>Math.abs(dy)) currentFacing = dx<0 ? 'left' : 'right'; else currentFacing = dy<0 ? 'up' : 'down'; }
-function scene(id){
-  if(mode!=='idle' || ending) return;
-  const o=rooms.find(a=>a.id===id);
-  if(id==='jiyan' && ['books','sofa','silver','fridge'].some(x=>!completed.has(x))){ active='jiyan'; expression='happy'; currentFacing='down'; say(['「嘿，先隨便看看吧。」「家裡沒什麼特別的東西就是了。」']); return; }
-  if(id!=='jiyan' && completed.has(id)){ active=id; expression='happy'; currentFacing='down'; say(['「這個剛剛不是看過了嗎？呵呵，還想再看一次呀？」']); return; }
-  mode='moving'; active=id; expression='normal'; updateFacing(o.tx,o.ty); $('hint').textContent='🐾 季宴正在走過去……'; dialogueUI('季宴','「等我一下喔。」',[]);
-  const done=()=>{ expression={books:'happy',sofa:'shy',silver:'happy',fridge:'angry',jiyan:'shy'}[id]; $('hint').textContent='👆 點家具探索，觸發季宴的小故事'; const reward=()=>{ if(!completed.has(id)){ completed.add(id); score+=o.points; updateScore(); } if(score>=10) finale(); else setIdle(); };
-    if(id==='jiyan') say(['「說起來……今天你來找我，是有什麼事情嗎？」',{prompt:'「嗯？怎麼不說話？」', options:[{label:'「沒有，只是來看看你。」', expr:'shy', lines:['「……只是來看我？」','「這樣啊。呵呵，有點不習慣呢。」']},{label:'「想跟你一起待一會兒。」', expr:'shy', lines:['「跟我一起？」','「今天的客人還真奇怪。」「……不過，我也不討厭。」']}]}], reward);
-    else {
-      const lines={ books:['「你也喜歡看小說？」','「這一整套，我可是一本一本慢慢收齊的。」','「要借你也可以，不過記得還我喔。」'],
-                    sofa:['「呼……果然還是家裡舒服。」','「平常工作完，最喜歡像這樣窩著。」','「……你要不要也坐一下？」'],
-                    silver:['「這些都是我慢慢收集的。」','「有些其實也沒多貴，就是覺得很漂亮。」','「你喜歡哪一個？」'],
-                    fridge:['「要吃點什麼嗎？我看看……」','「……等一下。」','「這個東西為什麼會出現在我家？！」'] }[id];
-      say(lines, reward);
-    }
-  };
-  moving={start:performance.now(), fromX:pos.x, fromY:pos.y, toX:o.tx, toY:o.ty, done};
-}
-function finale(){ ending=true; mode='end'; active='jiyan'; expression='shy'; currentFacing='down'; say(['「今天謝謝你陪我。」','「明明沒有什麼特別的事情……」','「但我好像過得很開心。」','「如果以後還想見面的話……」','「這個，給你。」'], ()=>showEnd()); }
+function finale(){ending=true;mode='end';active='jiyan';say([
+{line:'「今天謝謝你陪我。」',expr:'happy'},
+{line:'「明明沒有什麼特別的事情……」',expr:'shy'},
+{line:'「但我好像過得很開心。」',expr:'happy',emote:'♥'},
+{line:'「如果以後還想見面的話……」',expr:'shy'},
+{line:'「這個，給你。」',expr:'happy'}
+],()=>showEnd());}
 function safeUrl(url){ try{ const u=new URL(url); return u.protocol==='https:'||u.protocol==='http:' ? u.href : null; } catch { return null; } }
 function showEnd(){ mode='end'; $('speaker').textContent='♥ 好感度 10 / 10'; $('line').innerHTML=''; const wrap=document.createElement('div'); wrap.className='end'; wrap.innerHTML='<div class="heart">💌</div><h2>季宴的角色檔案已解鎖！</h2><p>今天的休息日，謝謝你陪他一起度過。</p>'; const link=safeUrl(externalUrl); if(link){ const a=document.createElement('a'); a.textContent='前往角色檔案 ↗'; a.href=link; a.target='_blank'; a.rel='noopener noreferrer'; wrap.append(a); }
   else { const p=document.createElement('p'); p.className='lock'; p.textContent='創作者尚未設定外部檔案網址'; wrap.append(p); const b=document.createElement('button'); b.className='smallbtn'; b.textContent='設定解鎖連結'; b.onclick=()=>{ $('modal').classList.add('show'); $('url').value=externalUrl; }; wrap.append(b); }
   const replay=document.createElement('button'); replay.className='secondary'; replay.textContent='再玩一次 ↻'; replay.onclick=restart; wrap.append(replay); $('line').append(wrap); $('actions').replaceChildren(); $('hint').textContent='🎉 完成！季宴很開心今天有你陪他'; }
-function restart(){ score=0; completed.clear(); mode='idle'; ending=false; active=null; moving=null; expression='normal'; pos={x:156,y:245}; currentFacing='down'; updateScore(); $('hint').textContent='👆 點點家具，季宴就會走過去看看'; setIdle(); }
+function restart(){ score=0; completed.clear(); mode='idle'; ending=false; active=null; moving=null; setAct(); pos={x:156,y:245}; currentFacing='down'; updateScore(); $('hint').textContent='👆 點點家具，季宴就會走過去看看'; setIdle(); }
 canvas.addEventListener('click',e=>{ if(mode!=='idle') return; const r=canvas.getBoundingClientRect(), x=(e.clientX-r.left)*320/r.width, y=(e.clientY-r.top)*352/r.height; const char={id:'jiyan', x:pos.x-26, y:pos.y-62, w:52, h:66}; if(x>=char.x&&x<=char.x+char.w&&y>=char.y&&y<=char.y+char.h){ scene('jiyan'); return; } for(let i=rooms.length-2;i>=0;i--){ const o=rooms[i]; if(x>=o.x-9 && x<=o.x+o.w+8 && y>=o.y-10 && y<=o.y+o.h+8){ scene(o.id); return; } } });
 $('next').onclick=()=>{ mode='idle'; setIdle(); };
 $('settings').onclick=()=>{ $('url').value=externalUrl; $('modal').classList.add('show'); };
